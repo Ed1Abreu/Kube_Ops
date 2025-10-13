@@ -27,6 +27,7 @@ COPY tests ./tests
 EXPOSE 8000
 
 # Comando padro: gunicorn
-CMD sh -lc "gunicorn -w 2 -b :$PORT app:app"
+# Comando padrão: gunicorn (1 worker + preload para evitar corrida no create_all)
+CMD sh -lc "gunicorn -w 1 --preload -b :$PORT app:app"
 
 

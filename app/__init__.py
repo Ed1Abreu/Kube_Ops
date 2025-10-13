@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from flask import Flask, jsonify
+import json
+import logging
+import time
+from flask import Flask, jsonify, request
 from marshmallow import ValidationError
 
 from .blueprints import bp as api_bp
@@ -16,6 +19,53 @@ def create_app() -> Flask:
 
     # Inicializa extensões
     db.init_app(app)
+
+    # Logging: JSON to stdout (picked by Filebeat/Docker)
+    root_logger = logging.getLogger()
+    if not root_logger.handlers:
+        # stdout handler (Docker)
+        stream_handler = logging.StreamHandler()
+        stream_handler.setFormatter(logging.Formatter("%(message)s"))
+        root_logger.addHandler(stream_handler)
+
+        # file handler (Filebeat local harvest)
+        try:
+            file_handler = logging.FileHandler("/var/log/app/app.log")
+            file_handler.setFormatter(logging.Formatter("%(message)s"))
+            root_logger.addHandler(file_handler)
+        except Exception:
+            # If path not writable, continue with stdout only
+            pass
+    root_logger.setLevel(logging.INFO)
+
+    @app.before_request
+    def _start_timer():
+        request._start_time = time.perf_counter()
+
+    @app.after_request
+    def _log_request(response):
+        try:
+            duration = None
+            if hasattr(request, "_start_time"):
+                duration = (time.perf_counter() - request._start_time) * 1000.0  # ms
+
+            log_record = {
+                "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "level": "INFO",
+                "event": "http_request",
+                "method": request.method,
+                "path": request.path,
+                "query": request.query_string.decode() if request.query_string else "",
+                "status": response.status_code,
+                "response_time_ms": round(duration, 3) if duration is not None else None,
+                "user_agent": request.headers.get("User-Agent"),
+                "remote_addr": request.remote_addr,
+            }
+            logging.getLogger(__name__).info(json.dumps(log_record))
+        except Exception:  # pragma: no cover
+            # Don't break responses due to logging issues
+            pass
+        return response
 
     @app.get("/")
     def index():

@@ -7,6 +7,22 @@ API REST em Python/Flask com CRUD de tarefas (Todo), banco SQLite por padrão, v
 ## 1) O que este projeto faz
 - Exponde endpoints para gerenciar tarefas (criar, listar, buscar, atualizar e remover)
 - Persiste dados em SQLite (arquivo `app.db`); pode apontar para PostgreSQL/MySQL mudando a variável `SQLALCHEMY_DATABASE_URI`
+## Etapa 4 – Logging e Métricas (Filebeat + Elasticsearch + Kibana)
+
+Esta etapa coleta logs da aplicação em tempo real e exibe métricas de requisições (código de status e tempo de resposta) no Kibana.
+
+### Como funciona (Beats coletando dados)
+- A aplicação Flask emite logs estruturados JSON para stdout, com campos: método, caminho, status, response_time_ms, user_agent, remote_addr.
+- O Docker expõe stdout/stderr do contêiner; o Filebeat (com autodiscover via Docker) lê esses logs diretamente do socket do Docker, aplica os processadores e envia para o Elasticsearch.
+- O Kibana lê os índices do Elasticsearch e permite criar visualizações/dashboards.
+
+### Subir o stack de Logging
+Arquivos criados:
+- `logging/docker-compose.yml`: sobe Elasticsearch (9200), Kibana (5601), Filebeat e o app.
+- `logging/filebeat/filebeat.yml`: configura autodiscover do Docker e saída para Elasticsearch/Kibana.
+
+Passos:
+```powershell
 - Possui testes automatizados cobrindo os endpoints principais
 - Pode ser executado localmente (Flask dev server) ou em produção via Docker (Gunicorn)
 - Integra pipeline CI/CD: em PRs roda testes; em pushes na `main` testa, constrói e publica imagem em `ghcr.io/<owner>/<repo>:latest`
@@ -19,12 +35,37 @@ API REST em Python/Flask com CRUD de tarefas (Todo), banco SQLite por padrão, v
 - Marshmallow
 - Pytest
 - Gunicorn
+
+### Criar o dashboard no Kibana
+1. Em Kibana, vá em "Stack Management" > "Index Patterns" e crie um data view para o índice default do Filebeat (ex: `filebeat-*`).
+2. Vá em "Discover" para confirmar que os documentos dos logs da aplicação estão chegando. Campos principais:
+   - `event`: "http_request"
+   - `method`, `path`, `status`, `response_time_ms`, `user_agent`, `remote_addr`, `app` (kube-ops)
+3. Vá em "Visualize Library" > "Create visualization" e crie ao menos:
+   - Um "Lens" com métrica de `response_time_ms` (Average) e uma distribuição por `status` (Bar/Donut).
+   - Uma tabela com contagem por `path` e `status`.
+4. Salve as visualizações e monte um Dashboard com:
+   - Logs em tempo real: um "Discover" embutido ou um Lens com última janela de tempo.
+   - Métricas: média de `response_time_ms`, contagem por `status`.
+
+### Testar geração de logs
+Em outro terminal, gere tráfego:
+```powershell
 - Docker
 - GitHub Actions + GHCR
 - Helm
 - Minikube/Kind
+Atualize o Dashboard e verifique os gráficos.
+
+### Entregáveis
+- Print do Dashboard configurado no Kibana.
+- Explicação de como os Beats coletaram os dados (acima, seção "Como funciona").
+
+### Parar o stack
+```powershell
 
 ---
+
 
 ## 3) Estrutura do repositório
 - `app/__init__.py` – cria e configura a aplicação, inicializa DB, registra blueprints, cria tabelas
