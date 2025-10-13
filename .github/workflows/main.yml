@@ -139,6 +139,12 @@ jobs:
         env:
           DOCKERHUB_USERNAME: ${{ env.DOCKERHUB_USERNAME }}
 
+      - name: Validate deployment (pods & service)
+        if: env.KUBE_CONFIG_BASE64 != ''
+        run: |
+          kubectl get deployments,pods,svc -A
+          kubectl get svc kube-ops -o wide || true
+
       - name: Skip deploy (no KUBE_CONFIG provided)
         if: env.KUBE_CONFIG_BASE64 == ''
         run: |
