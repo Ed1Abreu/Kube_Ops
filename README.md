@@ -21,6 +21,8 @@ API REST em Python/Flask com CRUD de tarefas (Todo), banco SQLite por padrão, v
 - Gunicorn
 - Docker
 - GitHub Actions + GHCR
+- Helm
+- Minikube/Kind
 
 ---
 
@@ -35,6 +37,8 @@ API REST em Python/Flask com CRUD de tarefas (Todo), banco SQLite por padrão, v
 - `.dockerignore` – arquivos ignorados no build
 - `requirements.txt` – dependências de runtime e testes
 - `.github/workflows/main.yml` – pipeline CI/CD
+- `helm/` - chart Helm para deploy
+- `pytest.ini` - para rodar testes sem erro de import
 
 ---
 
@@ -42,6 +46,8 @@ API REST em Python/Flask com CRUD de tarefas (Todo), banco SQLite por padrão, v
 - Python 3.12+
 - PowerShell (Windows) ou shell equivalente
 - Docker (opcional, para rodar container)
+- Minikube (ou Kind)
+- Helm
 
 ---
 
@@ -161,10 +167,102 @@ Publicar no Docker Hub (opcional):
 
 ---
 
-## 10) Dúvidas comuns
-- "Porta já em uso": troque a porta (`--port 8001`) ou pare o processo que usa 8000
-- "Banco não persiste no Docker": monte um volume conforme o exemplo de persistência
-- "Quero usar outro SGBD": defina `SQLALCHEMY_DATABASE_URI` com a URL do banco desejado
+## 10) Como rodar o projeto do zero
+
+### O que o projeto faz
+- API REST Python/Flask para tarefas (CRUD)
+- Banco SQLite por padrão (pode usar PostgreSQL/MySQL)
+- Testes automatizados (pytest)
+- Dockerfile para build/execução
+- CI/CD com GitHub Actions: testa, constrói e publica imagem no GHCR/Docker Hub
+- Deploy automático em Kubernetes via Helm (Minikube ou Kind)
+
+### Tecnologias
+- Flask 3, Flask-SQLAlchemy, Marshmallow, Pytest, Gunicorn
+- Docker, Helm, Minikube/Kind, GitHub Actions
+
+### Estrutura
+- `app/` - código da API
+- `tests/` - testes
+- `Dockerfile`, `.dockerignore`, `requirements.txt`
+- `.github/workflows/main.yml` - pipeline CI/CD
+- `helm/` - chart Helm para deploy
+- `pytest.ini` - para rodar testes sem erro de import
+
+### Pré-requisitos
+- Python 3.12+
+- Docker
+- Minikube (ou Kind)
+- Helm
+
+### Como rodar localmente (Windows PowerShell)
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python -m flask --app app run --port 8000
+pytest -q
+```
+
+### Como rodar com Docker
+```powershell
+docker build -t kube-ops:local .
+docker run -d --name kube_ops_local -p 8000:8000 kube-ops:local
+curl http://localhost:8000/
+curl http://localhost:8000/healthz
+docker run --rm -e PORT=8000 kube-ops:local python -m pytest -q
+```
+Persistir banco:
+```powershell
+docker run -d -p 8000:8000 -v ${PWD}/data:/app -e SQLALCHEMY_DATABASE_URI=sqlite:///app.db kube-ops:local
+```
+
+### CI/CD com GitHub Actions
+- Testa com pytest
+- Build/push para GHCR e Docker Hub (se secrets configurados)
+- Deploy automático no Kubernetes via Helm (se secret `KUBE_CONFIG` configurado)
+- Veja logs na aba Actions do GitHub
+
+### Como rodar no Minikube/Kind com Helm
+1. Inicie o cluster:
+   ```powershell
+   minikube start
+   ```
+2. Carregue a imagem local:
+   ```powershell
+   minikube image load kube-ops:local
+   ```
+3. Deploy com Helm:
+   ```powershell
+   helm upgrade --install kube-ops ./helm --set image.repository=kube-ops --set image.tag=local --set service.type=NodePort
+   ```
+4. Verifique pods e serviços:
+   ```powershell
+   kubectl get pods
+   kubectl get svc
+   minikube service kube-ops-kube-ops --url
+   # ou
+   kubectl port-forward svc/kube-ops-kube-ops 8000:8000
+   ```
+5. Acesse no navegador:
+   - http://localhost:8000/
+   - http://localhost:8000/healthz
+
+### Como entregar as etapas
+- Etapa 2: arquivo `.github/workflows/main.yml` + print do pipeline executado com sucesso
+- Etapa 3: diretório `/helm` + print do serviço rodando no Kubernetes (`kubectl get pods`, `kubectl get svc`, acesso via browser)
+
+### Dúvidas comuns
+- Porta em uso: troque a porta ou mate o processo
+- Banco não persiste: monte volume conforme exemplo
+- Outro SGBD: defina `SQLALCHEMY_DATABASE_URI`
+- Serviço não acessível: use nome exato do serviço ou port-forward
+
+### Resumo
+- Projeto roda local, Docker ou Kubernetes
+- CI/CD automatiza testes, build, push e deploy
+- Deploy no Kubernetes via Helm, serviço exposto por NodePort
+- Prints dos comandos e do workflow servem como prova para entrega
 
 ---
 
