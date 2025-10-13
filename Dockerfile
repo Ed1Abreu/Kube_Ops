@@ -20,11 +20,13 @@ RUN pip install -r requirements.txt
 
 # Copiar cdigo
 COPY app ./app
+# Copy tests into the image so we can run pytest from inside the container if desired
+COPY tests ./tests
 
 # Expor porta
 EXPOSE 8000
 
 # Comando padro: gunicorn
-CMD ["gunicorn", "-w", "2", "-b", ":8000", "app:app"]
+CMD sh -lc "gunicorn -w 2 -b :$PORT app:app"
 
 

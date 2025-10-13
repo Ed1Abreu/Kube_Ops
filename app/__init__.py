@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from flask import Flask, jsonify
+from marshmallow import ValidationError
 
 from .blueprints import bp as api_bp
 from .extensions import db
@@ -26,6 +27,11 @@ def create_app() -> Flask:
 
     # Registra blueprint API
     app.register_blueprint(api_bp)
+
+    # Tratamento de erros de validação do Marshmallow: retorna 400 com detalhes
+    @app.errorhandler(ValidationError)
+    def handle_validation_error(err: ValidationError):
+        return jsonify({"errors": err.messages}), 400
 
     # Cria tabelas em runtime (para simplicidade do exemplo)
     with app.app_context():

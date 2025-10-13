@@ -75,14 +75,25 @@ pytest -q
 
 ## 7) Docker
 Build e execução local:
-```bash
+```powershell
+# Build a imagem localmente
 docker build -t kube-ops:local .
-docker run -p 8000:8000 kube-ops:local
+
+# Rodar em background mapeando a porta 8000
+docker run -d --name kube_ops_local -p 8000:8000 kube-ops:local
+
+# Verificar endpoints (no PowerShell):
+curl http://localhost:8000/
+curl http://localhost:8000/healthz
+
+# Rodar testes dentro de um container temporário (a imagem já possui pytest):
+docker run --rm -e PORT=8000 kube-ops:local python -m pytest -q
 ```
 
 Persistência do SQLite em volume (mantendo o DB fora do container):
-```bash
-docker run -p 8000:8000 \
+```powershell
+# Persistir o arquivo SQLite em um diretório `data` na raiz do projeto:
+docker run -d -p 8000:8000 \
   -v ${PWD}/data:/app \
   -e SQLALCHEMY_DATABASE_URI=sqlite:///app.db \
   kube-ops:local
