@@ -22,6 +22,7 @@ RUN pip install -r requirements.txt
 COPY app ./app
 # Copy tests into the image so we can run pytest from inside the container if desired
 COPY tests ./tests
+RUN mkdir -p /var/log/app
 
 # Expor porta
 EXPOSE 8000

@@ -1,13 +1,17 @@
 filebeat.inputs:
   - type: filestream
-    id: docker-logs
+    id: app-log
     paths:
-      - /var/lib/docker/containers/*/*.log
+      - /var/log/app/*.log
+    # Use Elasticsearch data streams for custom logs: logs-<dataset>-<namespace>
+    data_stream:
+      dataset: app
+      namespace: default
     processors:
       - decode_json_fields:
           fields: ["message"]
-          target: ""
-          overwrite_keys: true
+          target: "app"
+          overwrite_keys: false
           add_error_key: true
       - add_fields:
           target: ''
@@ -24,6 +28,8 @@ setup.kibana:
 output.elasticsearch:
   hosts: ["http://elasticsearch:9200"]
   protocol: http
+  # Explicitly use data streams (default in 8.x). Index will be logs-<dataset>-<namespace>.
+  indices: []
 
 logging.level: info
 logging.to_files: false
