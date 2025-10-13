@@ -1,0 +1,20 @@
+replicaCount: 1
+
+image:
+  repository: ed1abreu/kube-ops
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: NodePort
+  port: 8000
+  nodePort: 30080
+
+ingress:
+  enabled: false
+  host: example.local
+  annotations: {}
+
+resources: {}
+
+

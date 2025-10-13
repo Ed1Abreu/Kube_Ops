@@ -1,0 +1,7 @@
+1. Get the application URL by running these commands:
+
+  - If you exposed the service as NodePort:
+
+    kubectl get svc {{ include "kube-ops.fullname" . }}
+
+  - If you used ingress (and configured DNS), open http://{{ .Values.ingress.host }}
