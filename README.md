@@ -1,310 +1,117 @@
-## Kube Ops - API Flask com CRUD + CI/CD
+## Kube Ops — Guia rápido para rodar o projeto
 
-API REST em Python/Flask com CRUD de tarefas (Todo), banco SQLite por padrão, validação com Marshmallow, testes com Pytest, container Docker e pipeline de CI/CD usando GitHub Actions que testa, constrói e publica a imagem no GitHub Container Registry (GHCR).
+Este README contém apenas o essencial: programas necessários e os comandos na ordem correta para executar a API localmente, via Docker, com logging (ELK) e no Kubernetes (Minikube + Helm), usando Windows PowerShell.
 
 ---
 
-## 1) O que este projeto faz
-- Exponde endpoints para gerenciar tarefas (criar, listar, buscar, atualizar e remover)
-- Persiste dados em SQLite (arquivo `app.db`); pode apontar para PostgreSQL/MySQL mudando a variável `SQLALCHEMY_DATABASE_URI`
-## Etapa 4 – Logging e Métricas (Filebeat + Elasticsearch + Kibana)
+## Pré‑requisitos (instale conforme o que pretende usar)
+- Git
+- Windows PowerShell 5.1 (padrão do Windows)
+- Python 3.12+ (para rodar localmente)
+- Docker Desktop (para Docker e stack de logging)
+- Minikube, kubectl e Helm (para Kubernetes)
 
-Esta etapa coleta logs da aplicação em tempo real e exibe métricas de requisições (código de status e tempo de resposta) no Kibana.
+---
 
-### Como funciona (Beats coletando dados)
-- A aplicação Flask emite logs estruturados JSON para stdout, com campos: método, caminho, status, response_time_ms, user_agent, remote_addr.
-- O Docker expõe stdout/stderr do contêiner; o Filebeat (com autodiscover via Docker) lê esses logs diretamente do socket do Docker, aplica os processadores e envia para o Elasticsearch.
-- O Kibana lê os índices do Elasticsearch e permite criar visualizações/dashboards.
-
-### Subir o stack de Logging
-Arquivos criados:
-- `logging/docker-compose.yml`: sobe Elasticsearch (9200), Kibana (5601), Filebeat e o app.
-- `logging/filebeat/filebeat.yml`: configura autodiscover do Docker e saída para Elasticsearch/Kibana.
-
-Passos:
+## Opção A) Rodar local (Python)
 ```powershell
-- Possui testes automatizados cobrindo os endpoints principais
-- Pode ser executado localmente (Flask dev server) ou em produção via Docker (Gunicorn)
-- Integra pipeline CI/CD: em PRs roda testes; em pushes na `main` testa, constrói e publica imagem em `ghcr.io/<owner>/<repo>:latest`
+git clone https://github.com/Ed1Abreu/Kube_Ops.git
+cd Kube_Ops
 
----
-
-## 2) Tecnologias
-- Flask 3
-- Flask‑SQLAlchemy
-- Marshmallow
-- Pytest
-- Gunicorn
-
-### Criar o dashboard no Kibana
-1. Em Kibana, vá em "Stack Management" > "Index Patterns" e crie um data view para o índice default do Filebeat (ex: `filebeat-*`).
-2. Vá em "Discover" para confirmar que os documentos dos logs da aplicação estão chegando. Campos principais:
-   - `event`: "http_request"
-   - `method`, `path`, `status`, `response_time_ms`, `user_agent`, `remote_addr`, `app` (kube-ops)
-3. Vá em "Visualize Library" > "Create visualization" e crie ao menos:
-   - Um "Lens" com métrica de `response_time_ms` (Average) e uma distribuição por `status` (Bar/Donut).
-   - Uma tabela com contagem por `path` e `status`.
-4. Salve as visualizações e monte um Dashboard com:
-   - Logs em tempo real: um "Discover" embutido ou um Lens com última janela de tempo.
-   - Métricas: média de `response_time_ms`, contagem por `status`.
-
-### Testar geração de logs
-Em outro terminal, gere tráfego:
-```powershell
-- Docker
-- GitHub Actions + GHCR
-- Helm
-- Minikube/Kind
-Atualize o Dashboard e verifique os gráficos.
-
-### Entregáveis
-- Print do Dashboard configurado no Kibana.
-- Explicação de como os Beats coletaram os dados (acima, seção "Como funciona").
-
-### Parar o stack
-```powershell
-
----
-
-
-## 3) Estrutura do repositório
-- `app/__init__.py` – cria e configura a aplicação, inicializa DB, registra blueprints, cria tabelas
-- `app/extensions.py` – instância global do SQLAlchemy (`db`)
-- `app/models.py` – modelo `Todo`
-- `app/schemas.py` – schemas de validação (criação/atualização)
-- `app/blueprints.py` – rotas REST da API (`/api/todos`)
-- `tests/test_app.py` – testes de integração dos endpoints
-- `Dockerfile` – imagem de produção com Gunicorn
-- `.dockerignore` – arquivos ignorados no build
-- `requirements.txt` – dependências de runtime e testes
-- `.github/workflows/main.yml` – pipeline CI/CD
-- `helm/` - chart Helm para deploy
-- `pytest.ini` - para rodar testes sem erro de import
-
----
-
-## 4) Pré‑requisitos
-- Python 3.12+
-- PowerShell (Windows) ou shell equivalente
-- Docker (opcional, para rodar container)
-- Minikube (ou Kind)
-- Helm
-
----
-
-## 5) Executar localmente (Windows PowerShell)
-1. Criar e ativar o ambiente virtual e instalar dependências:
-   - `python -m venv .venv`
-   - `.venv\Scripts\Activate.ps1`
-   - `pip install -r requirements.txt`
-2. Executar a aplicação (servidor de desenvolvimento do Flask):
-   - `python -m flask --app app run --port 8000`
-3. Acessar endpoints:
-   - `http://localhost:8000/` (mensagem)
-   - `http://localhost:8000/healthz` (saúde)
-   - CRUD: `http://localhost:8000/api/todos`
-
-Banco de dados: por padrão, `SQLALCHEMY_DATABASE_URI=sqlite:///app.db`. O arquivo `app.db` é criado automaticamente ao iniciar.
-
-Variáveis de ambiente úteis:
-- `SQLALCHEMY_DATABASE_URI` – ex.: `postgresql+psycopg2://user:pass@host:5432/dbname`
-- `PORT` – a porta de execução (usada pelo Docker/Gunicorn)
-
----
-
-## 6) Testes
-Execute:
-```bash
-pytest -q
-```
-
----
-
-## 7) Docker
-Build e execução local:
-```powershell
-# Build a imagem localmente
-docker build -t kube-ops:local .
-
-# Rodar em background mapeando a porta 8000
-docker run -d --name kube_ops_local -p 8000:8000 kube-ops:local
-
-# Verificar endpoints (no PowerShell):
-curl http://localhost:8000/
-curl http://localhost:8000/healthz
-
-# Rodar testes dentro de um container temporário (a imagem já possui pytest):
-docker run --rm -e PORT=8000 kube-ops:local python -m pytest -q
-```
-
-Persistência do SQLite em volume (mantendo o DB fora do container):
-```powershell
-# Persistir o arquivo SQLite em um diretório `data` na raiz do projeto:
-docker run -d -p 8000:8000 \
-  -v ${PWD}/data:/app \
-  -e SQLALCHEMY_DATABASE_URI=sqlite:///app.db \
-  kube-ops:local
-```
-
-Usando outro banco (ex.: PostgreSQL), basta setar `SQLALCHEMY_DATABASE_URI` para a URL do banco.
-
----
-
-## 8) Endpoints principais (exemplos com curl)
-Listar todos:
-```bash
-curl http://localhost:8000/api/todos
-```
-
-Criar:
-```bash
-curl -X POST http://localhost:8000/api/todos \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Estudar CI/CD"}'
-```
-
-Buscar por id:
-```bash
-curl http://localhost:8000/api/todos/1
-```
-
-Atualizar (parcial):
-```bash
-curl -X PATCH http://localhost:8000/api/todos/1 \
-  -H "Content-Type: application/json" \
-  -d '{"done":true}'
-```
-
-Remover:
-```bash
-curl -X DELETE http://localhost:8000/api/todos/1 -i
-```
-
----
-
-## 9) CI/CD com GitHub Actions e GHCR
-O workflow em `.github/workflows/main.yml` executa em PRs e pushes para `main`.
-
-Fluxo:
-1. Instala dependências e roda testes (`pytest`)
-2. Em pushes na `main`: autentica no GHCR, constrói a imagem e publica
-
-Tag publicada: `ghcr.io/<owner>/<repo>:latest`
-
-Primeiro uso do GHCR no repositório:
-- Não precisa criar token manual; o `GITHUB_TOKEN` já possui `packages: write`
-- A imagem aparecerá em Packages do repositório/usuário no GitHub
-
-Executar a imagem publicada (após o pipeline):
-```bash
-docker pull ghcr.io/<owner>/<repo>:latest
-docker run -p 8000:8000 ghcr.io/<owner>/<repo>:latest
-```
-
-Publicar no Docker Hub (opcional):
-- Alterar o passo de login para `docker.io`
-- Definir secrets `DOCKERHUB_USERNAME` e `DOCKERHUB_TOKEN`
-- Ajustar `tags` para `docker.io/<usuario>/<repo>:latest`
-
----
-
-## 10) Como rodar o projeto do zero
-
-### O que o projeto faz
-- API REST Python/Flask para tarefas (CRUD)
-- Banco SQLite por padrão (pode usar PostgreSQL/MySQL)
-- Testes automatizados (pytest)
-- Dockerfile para build/execução
-- CI/CD com GitHub Actions: testa, constrói e publica imagem no GHCR/Docker Hub
-- Deploy automático em Kubernetes via Helm (Minikube ou Kind)
-
-### Tecnologias
-- Flask 3, Flask-SQLAlchemy, Marshmallow, Pytest, Gunicorn
-- Docker, Helm, Minikube/Kind, GitHub Actions
-
-### Estrutura
-- `app/` - código da API
-- `tests/` - testes
-- `Dockerfile`, `.dockerignore`, `requirements.txt`
-- `.github/workflows/main.yml` - pipeline CI/CD
-- `helm/` - chart Helm para deploy
-- `pytest.ini` - para rodar testes sem erro de import
-
-### Pré-requisitos
-- Python 3.12+
-- Docker
-- Minikube (ou Kind)
-- Helm
-
-### Como rodar localmente (Windows PowerShell)
-```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+
+# Executar API na porta 8000
 python -m flask --app app run --port 8000
-pytest -q
 ```
+Acessar:
+- http://localhost:8000/
+- http://localhost:8000/healthz
+- CRUD: http://localhost:8000/api/todos
 
-### Como rodar com Docker
-```powershell
-docker build -t kube-ops:local .
-docker run -d --name kube_ops_local -p 8000:8000 kube-ops:local
-curl http://localhost:8000/
-curl http://localhost:8000/healthz
-docker run --rm -e PORT=8000 kube-ops:local python -m pytest -q
-```
-Persistir banco:
-```powershell
-docker run -d -p 8000:8000 -v ${PWD}/data:/app -e SQLALCHEMY_DATABASE_URI=sqlite:///app.db kube-ops:local
-```
-
-### CI/CD com GitHub Actions
-- Testa com pytest
-- Build/push para GHCR e Docker Hub (se secrets configurados)
-- Deploy automático no Kubernetes via Helm (se secret `KUBE_CONFIG` configurado)
-- Veja logs na aba Actions do GitHub
-
-### Como rodar no Minikube/Kind com Helm
-1. Inicie o cluster:
-   ```powershell
-   minikube start
-   ```
-2. Carregue a imagem local:
-   ```powershell
-   minikube image load kube-ops:local
-   ```
-3. Deploy com Helm:
-   ```powershell
-   helm upgrade --install kube-ops ./helm --set image.repository=kube-ops --set image.tag=local --set service.type=NodePort
-   ```
-4. Verifique pods e serviços:
-   ```powershell
-   kubectl get pods
-   kubectl get svc
-   minikube service kube-ops-kube-ops --url
-   # ou
-   kubectl port-forward svc/kube-ops-kube-ops 8000:8000
-   ```
-5. Acesse no navegador:
-   - http://localhost:8000/
-   - http://localhost:8000/healthz
-
-### Como entregar as etapas
-- Etapa 2: arquivo `.github/workflows/main.yml` + print do pipeline executado com sucesso
-- Etapa 3: diretório `/helm` + print do serviço rodando no Kubernetes (`kubectl get pods`, `kubectl get svc`, acesso via browser)
-
-### Dúvidas comuns
-- Porta em uso: troque a porta ou mate o processo
-- Banco não persiste: monte volume conforme exemplo
-- Outro SGBD: defina `SQLALCHEMY_DATABASE_URI`
-- Serviço não acessível: use nome exato do serviço ou port-forward
-
-### Resumo
-- Projeto roda local, Docker ou Kubernetes
-- CI/CD automatiza testes, build, push e deploy
-- Deploy no Kubernetes via Helm, serviço exposto por NodePort
-- Prints dos comandos e do workflow servem como prova para entrega
+Observações:
+- Banco padrão: SQLite em `app.db` (criado automaticamente).
+- Para outro banco, defina `SQLALCHEMY_DATABASE_URI` (ex.: PostgreSQL).
 
 ---
 
-Pronto! Com isso você consegue: rodar localmente, testar, criar imagem Docker e publicar no GHCR via pipeline automático.
+## Opção B) Rodar com Docker (API)
+```powershell
+git clone https://github.com/Ed1Abreu/Kube_Ops.git
+cd Kube_Ops
+
+docker build -t kube-ops:local .
+docker run -d --name kube_ops -p 8000:8000 kube-ops:local
+
+# Verificar rapidamente
+curl.exe http://localhost:8000/
+curl.exe http://localhost:8000/healthz
+```
+Persistir SQLite fora do container (opcional):
+```powershell
+mkdir data 2>$null
+docker run -d --name kube_ops -p 8000:8000 -v ${PWD}\data:/app -e SQLALCHEMY_DATABASE_URI=sqlite:///app.db kube-ops:local
+```
+
+---
+
+## Opção C) Rodar stack de Logging (Elasticsearch + Kibana + Filebeat + API)
+```powershell
+git clone https://github.com/Ed1Abreu/Kube_Ops.git
+cd Kube_Ops\logging
+
+docker compose up -d --build
+```
+URLs:
+- API: http://localhost:8000/
+- Elasticsearch: http://localhost:9200/
+- Kibana: http://localhost:5601/
+
+Primeiro acesso ao Kibana (uma vez):
+1) Abra http://localhost:5601/ → Discover.
+2) Crie um Data View com padrão `filebeat-*` e campo de tempo `@timestamp`.
+3) Gere tráfego na API e clique em Refresh no Discover:
+```powershell
+curl.exe http://localhost:8000/
+curl.exe http://localhost:8000/healthz
+curl.exe -X POST -H "Content-Type: application/json" -d "{\"title\":\"Teste\"}" http://localhost:8000/api/todos
+```
+Parar o stack:
+```powershell
+cd Kube_Ops\logging
+docker compose down -v
+```
+
+---
+
+## Opção D) Rodar no Kubernetes (Minikube + Helm)
+```powershell
+# 1) Iniciar cluster
+minikube start
+
+# 2) (Opcional) Carregar imagem local, se não estiver em registry
+minikube image load kube-ops:local
+
+# 3) Fazer deploy com Helm
+cd Kube_Ops
+helm upgrade --install kube-ops .\helm --set service.type=NodePort --set image.repository=kube-ops --set image.tag=local
+
+# 4) Descobrir o serviço e obter a URL
+kubectl get svc
+minikube service <nome-do-servico> --url
+# (Alternativa) Port-forward
+kubectl port-forward svc/<nome-do-servico> 8000:8000
+```
+Acessar:
+- http://localhost:8000/
+- http://localhost:8000/healthz
+
+Remover do cluster:
+```powershell
+helm uninstall kube-ops
+```
+
+---
+
+Pronto. Use a opção que preferir (A, B, C ou D). Se o Discover do Kibana mostrar “No results”, aumente o intervalo de tempo (ex.: “Last 1 hour”) e gere requisições na API antes de atualizar.
