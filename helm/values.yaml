@@ -17,4 +17,23 @@ ingress:
 
 resources: {}
 
+# Filebeat sidecar (para coletar logs em Kubernetes). Pode ser desabilitado definindo enabled: false
+filebeat:
+  enabled: true
+  image: docker.elastic.co/beats/filebeat:8.13.4
+  pullPolicy: IfNotPresent
+  resources: {}
+  elasticsearch:
+    host: elasticsearch
+    port: 9200
+  kibana:
+    host: kibana
+    port: 5601
+  # Namespace e dataset do data stream
+  dataStream:
+    dataset: app
+    namespace: default
+  extraEnv: []
+
+
 

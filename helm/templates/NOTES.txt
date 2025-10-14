@@ -5,3 +5,9 @@
     kubectl get svc {{ include "kube-ops.fullname" . }}
 
   - If you used ingress (and configured DNS), open http://{{ .Values.ingress.host }}
+
+Filebeat sidecar status: {{ if .Values.filebeat.enabled }}ENABLED{{ else }}DISABLED{{ end }}
+  Dataset: {{ .Values.filebeat.dataStream.dataset }}  Namespace: {{ .Values.filebeat.dataStream.namespace }}
+  Elasticsearch endpoint: {{ .Values.filebeat.elasticsearch.host }}:{{ .Values.filebeat.elasticsearch.port }}
+  Kibana endpoint: {{ .Values.filebeat.kibana.host }}:{{ .Values.filebeat.kibana.port }}
+If sidecar enabled, logs from /var/log/app/*.log will be shipped as data stream logs-{{ .Values.filebeat.dataStream.dataset }}-{{ .Values.filebeat.dataStream.namespace }}.

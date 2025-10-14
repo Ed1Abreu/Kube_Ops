@@ -49,17 +49,18 @@ def create_app() -> Flask:
             if hasattr(request, "_start_time"):
                 duration = (time.perf_counter() - request._start_time) * 1000.0  # ms
 
+            # ECS-aligned log record
+            # Log simplificado para Filebeat: será decodificado do campo message em raiz
+            # Formato ECS básico
             log_record = {
-                "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "level": "INFO",
-                "event": "http_request",
-                "method": request.method,
-                "path": request.path,
-                "query": request.query_string.decode() if request.query_string else "",
-                "status": response.status_code,
-                "response_time_ms": round(duration, 3) if duration is not None else None,
-                "user_agent": request.headers.get("User-Agent"),
-                "remote_addr": request.remote_addr,
+                "@timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "event": {"action": "http_request"},
+                "http": {"request": {"method": request.method}, "response": {"status_code": response.status_code}},
+                "url": {"path": request.path, "query": request.query_string.decode() if request.query_string else ""},
+                "client": {"ip": request.remote_addr},
+                "user_agent": {"original": request.headers.get("User-Agent")},
+                "service": {"name": "kube-ops"},
+                "metrics": {"response_time_ms": round(duration, 3) if duration is not None else None}
             }
             logging.getLogger(__name__).info(json.dumps(log_record))
         except Exception:  # pragma: no cover

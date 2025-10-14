@@ -1,0 +1,49 @@
+{{- if .Values.filebeat.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kube-ops.fullname" . }}-filebeat
+  labels:
+    app: {{ include "kube-ops.name" . }}
+data:
+  filebeat.yml: |
+    filebeat.inputs:
+      - type: filestream
+        id: app-log
+        paths:
+          - /var/log/app/*.log
+        data_stream:
+          dataset: ${DATASET:app}
+          namespace: ${NAMESPACE:default}
+        parsers:
+          - ndjson:
+              target: ""
+              overwrite_keys: true
+              add_error_key: true
+        processors:
+          - add_fields:
+              target: ''
+              fields:
+                app: kube-ops
+
+    processors:
+      - add_kubernetes_metadata:
+          host: ${NODE_NAME}
+          matchers:
+            - logs_path:
+                logs_path: /var/log/app
+
+    setup.template.enabled: true
+    setup.kibana:
+      host: ${KIBANA_HOST}:${KIBANA_PORT}
+
+    output.elasticsearch:
+      hosts: ["${ELASTIC_HOST}:${ELASTIC_PORT}"]
+      protocol: http
+
+    logging.level: info
+    logging.to_files: false
+    logging.to_stdout: true
+    strict.perms: false
+---
+{{- end }}

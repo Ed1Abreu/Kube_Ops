@@ -3,16 +3,15 @@ filebeat.inputs:
     id: app-log
     paths:
       - /var/log/app/*.log
-    # Use Elasticsearch data streams for custom logs: logs-<dataset>-<namespace>
     data_stream:
       dataset: app
       namespace: default
-    processors:
-      - decode_json_fields:
-          fields: ["message"]
-          target: "app"
-          overwrite_keys: false
+    parsers:
+      - ndjson:
+          target: ""            # coloca cada chave do JSON na raiz
+          overwrite_keys: true
           add_error_key: true
+    processors:
       - add_fields:
           target: ''
           fields:
@@ -28,10 +27,10 @@ setup.kibana:
 output.elasticsearch:
   hosts: ["http://elasticsearch:9200"]
   protocol: http
-  # Explicitly use data streams (default in 8.x). Index will be logs-<dataset>-<namespace>.
   indices: []
 
-logging.level: info
+logging.level: debug
+logging.selectors: ["elasticsearch","publish"]
 logging.to_files: false
 logging.to_stdout: true
 strict.perms: false
