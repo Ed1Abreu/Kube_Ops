@@ -1,0 +1,15 @@
+# Overrides para rodar a app no mesmo namespace (observability) com filebeat apontando para ES/Kibana
+service:
+  type: ClusterIP
+
+filebeat:
+  enabled: true
+  elasticsearch:
+    host: elasticsearch-master.observability.svc.cluster.local
+    port: 9200
+  kibana:
+    host: kibana-kibana.observability.svc.cluster.local
+    port: 5601
+  dataStream:
+    dataset: app
+    namespace: default
