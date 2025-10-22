@@ -49,6 +49,19 @@ def create_app() -> Flask:
             if hasattr(request, "_start_time"):
                 duration = (time.perf_counter() - request._start_time) * 1000.0  # ms
 
+            # Deriva classe de status (2xx, 4xx, 5xx) para facilitar dashboards
+            sc = response.status_code
+            if sc >= 500:
+                status_class = "5xx"
+            elif sc >= 400:
+                status_class = "4xx"
+            elif sc >= 300:
+                status_class = "3xx"
+            elif sc >= 200:
+                status_class = "2xx"
+            else:
+                status_class = "1xx"
+
             # ECS-aligned log record
             # Log simplificado para Filebeat: será decodificado do campo message em raiz
             # Formato ECS básico
@@ -60,7 +73,8 @@ def create_app() -> Flask:
                 "client": {"ip": request.remote_addr},
                 "user_agent": {"original": request.headers.get("User-Agent")},
                 "service": {"name": "kube-ops"},
-                "metrics": {"response_time_ms": round(duration, 3) if duration is not None else None}
+                "metrics": {"response_time_ms": round(duration, 3) if duration is not None else None},
+                "status_class": status_class
             }
             logging.getLogger(__name__).info(json.dumps(log_record))
         except Exception:  # pragma: no cover
@@ -76,6 +90,11 @@ def create_app() -> Flask:
     def healthz():
         return jsonify({"status": "ok"}), 200
 
+    # Endpoint para simular erro 500 (para dashboards)
+    @app.get("/boom")
+    def boom():  # pragma: no cover - apenas para testes manuais/observabilidade
+        raise RuntimeError("boom")
+
     # Registra blueprint API
     app.register_blueprint(api_bp)
 
@@ -83,6 +102,31 @@ def create_app() -> Flask:
     @app.errorhandler(ValidationError)
     def handle_validation_error(err: ValidationError):
         return jsonify({"errors": err.messages}), 400
+
+    # Tratamento de erro 500 para garantir log estruturado mesmo em exceções
+    @app.errorhandler(500)
+    def handle_internal_error(err):  # pragma: no cover - caminho de erro
+        try:
+            duration = None
+            if hasattr(request, "_start_time"):
+                duration = (time.perf_counter() - request._start_time) * 1000.0  # ms
+
+            log_record = {
+                "@timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "event": {"action": "http_request"},
+                "http": {"request": {"method": request.method}, "response": {"status_code": 500}},
+                "url": {"path": request.path, "query": request.query_string.decode() if request.query_string else ""},
+                "client": {"ip": request.remote_addr},
+                "user_agent": {"original": request.headers.get("User-Agent")},
+                "service": {"name": "kube-ops"},
+                "metrics": {"response_time_ms": round(duration, 3) if duration is not None else None},
+                "error": {"message": str(err)},
+                "status_class": "5xx"
+            }
+            logging.getLogger(__name__).info(json.dumps(log_record))
+        except Exception:
+            pass
+        return jsonify({"error": "internal server error"}), 500
 
     # Cria tabelas em runtime (para simplicidade do exemplo)
     with app.app_context():
