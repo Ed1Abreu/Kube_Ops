@@ -1,14 +1,67 @@
-version: '3.8'
-
 services:
+  # API Flask (Gunicorn)
   app:
     build: .
     image: kube-ops:local
+    container_name: kube_ops_app
     ports:
-      - "8000:8000"
+      - "8000:8000"          # expõe a API localmente
     volumes:
-      - ./:/app
+      - ./:/app               # monta código-fonte (dev hot-reload de build)
+      - app_logs:/var/log/app # volume compartilhado de logs para o Filebeat
     environment:
       - SQLALCHEMY_DATABASE_URI=sqlite:///app.db
+      - PORT=8000
     command: ["gunicorn", "-w", "2", "-b", ":8000", "app:app"]
+    depends_on:
+      - elasticsearch
     restart: unless-stopped
+
+  # Elasticsearch 8.x (armazenamento e busca dos logs)
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: es
+    environment:
+      - discovery.type=single-node           # nó único para dev
+      - xpack.security.enabled=false         # sem segurança em dev (credenciais não necessárias)
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m       # limita memória JVM para máquinas locais
+    ports:
+      - "9200:9200"          # endpoint REST do ES
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Kibana 8.x (visualização dos dados do Elasticsearch)
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.4
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - xpack.security.enabled=false         # sem login/senha em dev
+    ports:
+      - "5601:5601"          # UI do Kibana
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Filebeat (coletor de logs da aplicação)
+  filebeat:
+    build:
+      context: ./logging/filebeat            # usa Dockerfile local para aplicar permissões no filebeat.yml
+    image: local/filebeat:8.13.4
+    container_name: filebeat
+    user: root
+    volumes:
+      - app_logs:/var/log/app:ro             # leitura dos logs gerados pela app
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  # Volume nomeado para compartilhar /var/log/app entre app e filebeat
+  app_logs:
