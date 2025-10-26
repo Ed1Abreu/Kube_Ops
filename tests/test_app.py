@@ -7,13 +7,7 @@ from app import create_app
 
 def test_index_route_returns_message():
     # Use in-memory database for tests
-    app = create_app()
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
-    
-    with app.app_context():
-        from app.extensions import db
-        db.create_all()
-    
+    app = create_app(config_override={"SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
     client = app.test_client()
     response = client.get("/")
     assert response.status_code == 200
@@ -22,13 +16,7 @@ def test_index_route_returns_message():
 
 def test_healthz_route_ok():
     # Use in-memory database for tests
-    app = create_app()
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
-    
-    with app.app_context():
-        from app.extensions import db
-        db.create_all()
-    
+    app = create_app(config_override={"SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
     client = app.test_client()
     response = client.get("/healthz")
     assert response.status_code == 200
@@ -37,13 +25,7 @@ def test_healthz_route_ok():
 
 def test_todos_crud_flow():
     # Use in-memory database for tests
-    app = create_app()
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
-    
-    with app.app_context():
-        from app.extensions import db
-        db.create_all()
-    
+    app = create_app(config_override={"SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
     client = app.test_client()
 
     # list should be empty

@@ -10,12 +10,16 @@ from .blueprints import bp as api_bp
 from .extensions import db
 
 
-def create_app() -> Flask:
+def create_app(config_override: dict = None) -> Flask:
     app = Flask(__name__)
 
     # Config simples: SQLite em arquivo local
     app.config.setdefault("SQLALCHEMY_DATABASE_URI", "sqlite:///app.db")
     app.config.setdefault("SQLALCHEMY_TRACK_MODIFICATIONS", False)
+    
+    # Apply config overrides (for testing)
+    if config_override:
+        app.config.update(config_override)
 
     # Inicializa extensões
     db.init_app(app)
