@@ -1152,7 +1152,7 @@ pytest -v
 
 ---
 
-**Última atualização:** 2025-10-27 - Deploy automático configurado! ✅
+**Última atualização:** 2025-10-27
 
 ---
 
