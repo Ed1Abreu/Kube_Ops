@@ -1152,6 +1152,10 @@ pytest -v
 
 ---
 
+**Última atualização:** 2025-10-27
+
+---
+
 **⭐ Se este projeto te ajudou, deixe uma estrela no GitHub!**
 
 ---
