@@ -22,44 +22,44 @@ spec:
             - containerPort: {{ .Values.service.port }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-              volumeMounts:
-                - name: app-logs
-                  mountPath: /var/log/app
-            {{- if .Values.filebeat.enabled }}
-            - name: filebeat
-              image: {{ .Values.filebeat.image }}
-              imagePullPolicy: {{ .Values.filebeat.pullPolicy }}
-              args: ["-e","-strict.perms=false","-c","/etc/filebeat/filebeat.yml"]
-              env:
-                - name: ELASTIC_HOST
-                  value: {{ printf "%s" .Values.filebeat.elasticsearch.host | quote }}
-                - name: ELASTIC_PORT
-                  value: {{ printf "%v" .Values.filebeat.elasticsearch.port | quote }}
-                - name: KIBANA_HOST
-                  value: {{ printf "%s" .Values.filebeat.kibana.host | quote }}
-                - name: KIBANA_PORT
-                  value: {{ printf "%v" .Values.filebeat.kibana.port | quote }}
-                - name: DATASET
-                  value: {{ .Values.filebeat.dataStream.dataset | quote }}
-                - name: NAMESPACE
-                  value: {{ .Values.filebeat.dataStream.namespace | quote }}
-                {{- range .Values.filebeat.extraEnv }}
-                - name: {{ .name }}
-                  value: {{ .value | quote }}
-                {{- end }}
-              resources:
-                {{- toYaml .Values.filebeat.resources | nindent 12 }}
-              volumeMounts:
-                - name: filebeat-config
-                  mountPath: /etc/filebeat
-                - name: app-logs
-                  mountPath: /var/log/app
-            {{- end }}
-          volumes:
+          volumeMounts:
             - name: app-logs
-              emptyDir: {}
-            {{- if .Values.filebeat.enabled }}
-            - name: filebeat-config
-              configMap:
-                name: {{ include "kube-ops.fullname" . }}-filebeat
+              mountPath: /var/log/app
+        {{- if .Values.filebeat.enabled }}
+        - name: filebeat
+          image: {{ .Values.filebeat.image }}
+          imagePullPolicy: {{ .Values.filebeat.pullPolicy }}
+          args: ["-e","-strict.perms=false","-c","/etc/filebeat/filebeat.yml"]
+          env:
+            - name: ELASTIC_HOST
+              value: {{ printf "%s" .Values.filebeat.elasticsearch.host | quote }}
+            - name: ELASTIC_PORT
+              value: {{ printf "%v" .Values.filebeat.elasticsearch.port | quote }}
+            - name: KIBANA_HOST
+              value: {{ printf "%s" .Values.filebeat.kibana.host | quote }}
+            - name: KIBANA_PORT
+              value: {{ printf "%v" .Values.filebeat.kibana.port | quote }}
+            - name: DATASET
+              value: {{ .Values.filebeat.dataStream.dataset | quote }}
+            - name: NAMESPACE
+              value: {{ .Values.filebeat.dataStream.namespace | quote }}
+            {{- range .Values.filebeat.extraEnv }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
             {{- end }}
+          resources:
+            {{- toYaml .Values.filebeat.resources | nindent 12 }}
+          volumeMounts:
+            - name: filebeat-config
+              mountPath: /etc/filebeat
+            - name: app-logs
+              mountPath: /var/log/app
+        {{- end }}
+      volumes:
+        - name: app-logs
+          emptyDir: {}
+        {{- if .Values.filebeat.enabled }}
+        - name: filebeat-config
+          configMap:
+            name: {{ include "kube-ops.fullname" . }}-filebeat
+        {{- end }}
